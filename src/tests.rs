@@ -1,6 +1,6 @@
-use crate::{Command, CommandDispatcher};
 use crate::parsers::escaped_string::parse_string;
-use crate::parsers::tokenize::{Token, tokenize};
+use crate::parsers::tokenize::{tokenize, Token};
+use crate::{Command, CommandDispatcher};
 
 #[test]
 fn command() {
@@ -59,7 +59,7 @@ fn test_tokenize() {
         Token::End,
         Token::Named("bye".to_string(), "2".to_string()),
         Token::End,
-        Token::Named("hello".to_string(), "good day".to_string())
+        Token::Named("hello".to_string(), "good day".to_string()),
     ];
     assert_eq!(tokenize(sample), Ok(("   ", parsed_sample)));
 }

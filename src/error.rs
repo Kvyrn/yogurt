@@ -1,5 +1,5 @@
-use nom::Err;
 use crate::InvalidCommandReason::UnknownCommand;
+use nom::Err;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
@@ -22,5 +22,5 @@ pub enum InvalidCommandReason {
     MissingArgument,
     InvalidArgument,
     UnclosedQuote,
-    Unauthorised
+    Unauthorised,
 }
