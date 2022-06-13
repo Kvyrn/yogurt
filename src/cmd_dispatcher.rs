@@ -1,8 +1,11 @@
-use crate::parsers::tokenize::{tokenize, Token};
-use crate::{Error, Result};
+use std::collections::{HashMap, VecDeque};
+
 use fnv::FnvHashMap;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
+
+use crate::parsers::tokenize::{tokenize, Token};
+use crate::{Error, InvalidCommandReason, Result};
 
 #[derive(Debug, Clone)]
 pub struct CommandDispatcher {
@@ -17,7 +20,11 @@ pub struct Command {
 }
 
 impl Command {
-    pub fn execute(&self, payload: &str) -> Result<()> {
+    pub fn execute(
+        &self,
+        tokens: VecDeque<String>,
+        named_arguments: HashMap<String, String>,
+    ) -> Result<()> {
         todo!()
     }
 
@@ -47,17 +54,55 @@ impl CommandDispatcher {
             }
         }
         //Ok(())
+        // get stdout in tests
         Err(Error::ExecutionFailed)
     }
 
     fn execute_command(&self, tokens: Vec<Token>) -> Result<()> {
         println!("{tokens:#?}");
-        Ok(())
+        let (named_arguments, tokens): (Vec<_>, _) = tokens
+            .into_iter()
+            .partition(|token| !matches!(token, &Token::Named(_, _)));
+        let mut tokens = VecDeque::from(unwrap_tokens(tokens));
+        let named_args = map_named_arguments(named_arguments);
+
+        let cmd = self.commands.get(
+            tokens
+                .pop_front()
+                .ok_or(Error::InvalidCommand(InvalidCommandReason::UnknownCommand))?
+                .as_str(),
+        );
+
+        if let Some(cmd) = cmd {
+            return cmd.execute(tokens, named_args);
+        }
+
+        Err(Error::InvalidCommand(InvalidCommandReason::UnknownCommand))
     }
 
     pub fn builder() -> CommandDispatcherBuilder {
         CommandDispatcherBuilder::new()
     }
+}
+
+fn unwrap_tokens(tokens: Vec<Token>) -> Vec<String> {
+    let mut output = vec![];
+    for token in tokens {
+        if let Token::Simple(content) = token {
+            output.push(content);
+        }
+    }
+    output
+}
+
+fn map_named_arguments(tokens: Vec<Token>) -> HashMap<String, String> {
+    let mut output = HashMap::new();
+    for token in tokens {
+        if let Token::Named(key, value) = token {
+            output.insert(key, value);
+        }
+    }
+    output
 }
 
 #[derive(Debug, Clone, Default)]

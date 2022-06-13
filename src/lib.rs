@@ -1,3 +1,4 @@
+pub mod argument;
 mod cmd_dispatcher;
 mod error;
 pub(crate) mod parsers;
