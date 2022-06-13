@@ -7,16 +7,17 @@ use nom::character::complete::multispace0;
 use crate::parsers::tokenize::{tokenize, Token};
 use crate::{Error, InvalidCommandReason, Result};
 
-#[derive(Debug, Clone)]
+type CommandExec = Box<dyn Fn() -> Result<()>>;
+
 pub struct CommandDispatcher {
     pub commands: FnvHashMap<String, Command>,
     pub prefix: String,
 }
 
-#[derive(Debug, Clone)]
 pub struct Command {
     parameters: (),
     subcommands: FnvHashMap<String, Command>,
+    exec: Option<CommandExec>
 }
 
 impl Command {
@@ -103,7 +104,7 @@ fn map_named_arguments(tokens: Vec<Token>) -> HashMap<String, String> {
     output
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
 pub struct CommandDispatcherBuilder {
     prefix: String,
     commands: FnvHashMap<String, Command>,
@@ -135,10 +136,11 @@ impl CommandDispatcherBuilder {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Default)]
 pub struct CommandBuilder {
     subcommands: FnvHashMap<String, Command>,
     parameters: (),
+    exec: Option<CommandExec>
 }
 
 impl CommandBuilder {
@@ -146,6 +148,7 @@ impl CommandBuilder {
         CommandBuilder {
             subcommands: FnvHashMap::default(),
             parameters: (),
+            exec: None
         }
     }
 
@@ -153,11 +156,17 @@ impl CommandBuilder {
         self.subcommands.insert(name.to_string(), command);
         self
     }
+    
+    pub fn exec(mut self, exec: CommandExec) -> Self {
+        self.exec = Some(exec);
+        self
+    }
 
     pub fn build(self) -> Command {
         Command {
             parameters: self.parameters,
             subcommands: self.subcommands,
+            exec: self.exec
         }
     }
 }
