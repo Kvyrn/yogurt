@@ -53,16 +53,14 @@ impl CommandDispatcher {
                 cmd_tokens = vec![];
             }
         }
-        //Ok(())
-        // get stdout in tests
-        Err(Error::ExecutionFailed)
+        Ok(())
     }
 
     fn execute_command(&self, tokens: Vec<Token>) -> Result<()> {
         println!("{tokens:#?}");
         let (named_arguments, tokens): (Vec<_>, _) = tokens
             .into_iter()
-            .partition(|token| !matches!(token, &Token::Named(_, _)));
+            .partition(|token| matches!(token, &Token::Named(_, _)));
         let mut tokens = VecDeque::from(unwrap_tokens(tokens));
         let named_args = map_named_arguments(named_arguments);
 
