@@ -1,6 +1,7 @@
+use crate::argument::{Argument, IntArgument, StringArgument};
 use crate::parsers::escaped_string::parse_string;
 use crate::parsers::tokenize::{tokenize, Token};
-use crate::{Command, CommandDispatcher};
+use crate::{Command, CommandDispatcher, Error, InvalidCommandReason};
 
 #[test]
 fn command() {
@@ -62,4 +63,21 @@ fn test_tokenize() {
         Token::Named("hello".to_string(), "good day".to_string()),
     ];
     assert_eq!(tokenize(sample), Ok(("   ", parsed_sample)));
+}
+
+#[test]
+fn string_argument() {
+    assert_eq!(
+        StringArgument::parse("hello".to_string()),
+        Ok(String::from("hello"))
+    )
+}
+
+#[test]
+fn int_argument() {
+    assert_eq!(IntArgument::parse("123".to_string()), Ok(123));
+    assert_eq!(
+        IntArgument::parse("abc".to_string()),
+        Err(Error::InvalidCommand(InvalidCommandReason::InvalidArgument))
+    )
 }

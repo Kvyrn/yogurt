@@ -7,7 +7,7 @@ use nom::character::complete::multispace0;
 use crate::parsers::tokenize::{tokenize, Token};
 use crate::{Error, InvalidCommandReason, Result};
 
-type CommandExec = Box<dyn Fn() -> Result<()>>;
+type CommandExec = fn() -> Result<()>;
 
 pub struct CommandDispatcher {
     pub commands: FnvHashMap<String, Command>,
