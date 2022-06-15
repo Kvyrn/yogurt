@@ -68,16 +68,16 @@ fn test_tokenize() {
 #[test]
 fn string_argument() {
     assert_eq!(
-        StringArgument::parse("hello".to_string()),
+        StringArgument.parse("hello".to_string()),
         Ok(String::from("hello"))
     )
 }
 
 #[test]
 fn int_argument() {
-    assert_eq!(IntArgument::parse("123".to_string()), Ok(123));
+    assert_eq!(IntArgument.parse("123".to_string()), Ok(123));
     assert_eq!(
-        IntArgument::parse("abc".to_string()),
+        IntArgument.parse("abc".to_string()),
         Err(Error::InvalidCommand(InvalidCommandReason::InvalidArgument))
     )
 }
