@@ -6,6 +6,7 @@ pub enum Error {
     InvalidCommand(InvalidCommandReason),
     ExecutionFailed,
     NotACommand,
+    IncompleteBuilder,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

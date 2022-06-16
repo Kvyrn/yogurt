@@ -1,37 +1,51 @@
+use std::fmt::Debug;
 use crate::{Error, InvalidCommandReason, Result};
 
-pub trait Argument {
+pub trait ArgumentParser: Debug + Clone {
     type Output;
 
     fn parse(&self, token: String) -> Result<Self::Output>;
+
+    fn validator(&self) -> fn(String) -> bool;
 }
 
+#[derive(Debug, Clone)]
 pub struct StringArgument;
 
-impl Argument for StringArgument {
+impl ArgumentParser for StringArgument {
     type Output = String;
 
     fn parse(&self, token: String) -> Result<Self::Output> {
         Ok(token)
     }
+
+    fn validator(&self) -> fn(String) -> bool {
+        |_| true
+    }
 }
 
+#[derive(Debug, Clone)]
 pub struct IntArgument;
 
-impl Argument for IntArgument {
+impl ArgumentParser for IntArgument {
     type Output = i32;
 
     fn parse(&self, token: String) -> Result<Self::Output> {
         token.parse().map_err(|_| Error::InvalidCommand(InvalidCommandReason::InvalidArgument))
     }
+
+    fn validator(&self) -> fn(String) -> bool {
+        |str| str.parse::<i32>().is_ok()
+    }
 }
 
+#[derive(Debug, Clone)]
 pub struct BoundedIntArgument {
     min: i32,
     max: i32
 }
 
-impl Argument for BoundedIntArgument {
+impl ArgumentParser for BoundedIntArgument {
     type Output = i32;
 
     fn parse(&self, token: String) -> Result<Self::Output> {
@@ -41,5 +55,9 @@ impl Argument for BoundedIntArgument {
         } else {
             Err(Error::InvalidCommand(InvalidCommandReason::InvalidArgument))
         }
+    }
+
+    fn validator(&self) -> fn(String) -> bool {
+        |str| str.parse::<i32>().is_ok()
     }
 }

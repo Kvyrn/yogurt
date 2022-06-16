@@ -1,33 +1,21 @@
-use crate::argument::{Argument, IntArgument, StringArgument};
+use crate::argument::parser::{ArgumentParser, IntArgument, StringArgument};
 use crate::parsers::escaped_string::parse_string;
 use crate::parsers::tokenize::{tokenize, Token};
-use crate::{Command, CommandDispatcher, Error, InvalidCommandReason};
+use crate::{Command, Dispatcher, Error, InvalidCommandReason};
 
 #[test]
 fn command() {
-    let dispatcher = CommandDispatcher::builder()
-        .command("test", Command::builder().build())
-        .build();
-
-    dispatcher.run_command("   test\n onion").unwrap();
-}
-
-#[test]
-fn double_command() {
-    let dispatcher = CommandDispatcher::builder()
-        .command("test", Command::builder().build())
-        .build();
-
-    dispatcher.run_command("test 1; test 2").unwrap();
-}
-
-#[test]
-fn command_with_prefix() {
-    let dispatcher = CommandDispatcher::builder()
+    let dispatcher = Dispatcher::builder()
         .prefix("/")
-        .command("test", Command::builder().build())
-        .build();
-    dispatcher.run_command("/test").unwrap();
+        .context(|| ())
+        .child(Command::literal("hello").exec(|ctx| {
+            println!("{ctx:?}");
+            Ok(())
+        }))
+        .build()
+        .unwrap();
+
+    dispatcher.run_command("/hello").unwrap();
 }
 
 #[test]

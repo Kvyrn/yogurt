@@ -1,9 +1,11 @@
+extern crate core;
+
 pub mod argument;
-mod cmd_dispatcher;
+pub mod dispatcher;
 mod error;
 pub(crate) mod parsers;
 #[cfg(test)]
 mod tests;
 
-pub use cmd_dispatcher::{Command, CommandBuilder, CommandDispatcher, CommandDispatcherBuilder};
+pub use dispatcher::*;
 pub use error::*;
