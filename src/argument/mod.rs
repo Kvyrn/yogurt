@@ -12,7 +12,7 @@ impl Argument {
         Self {
             validator,
             name,
-            required
+            required,
         }
     }
 }
