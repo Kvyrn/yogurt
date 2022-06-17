@@ -8,6 +8,7 @@ use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
+use fnv::FnvHashMap;
 
 mod builder;
 mod exec_context;
@@ -25,7 +26,8 @@ pub struct Dispatcher<C: Debug> {
 
 #[allow(clippy::type_complexity)]
 pub struct Command<C: Debug> {
-    children: Vec<Command<C>>,
+    literals: FnvHashMap<String, Command<C>>,
+    arguments: Vec<Command<C>>,
     node: NodeType,
     exec: Option<Box<dyn Fn(ExecContext<C>) -> Result<()>>>,
 }
@@ -50,6 +52,14 @@ impl<C: Debug> Command<C> {
         context: ExecContext<C>,
     ) -> Result<()> {
         Ok(())
+    }
+
+    pub fn is_literal(&self) -> bool {
+        matches!(self.node, NodeType::Literal(_))
+    }
+
+    pub fn is_argument(&self) -> bool {
+        matches!(self.node, NodeType::Argument(_))
     }
 }
 

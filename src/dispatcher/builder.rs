@@ -2,6 +2,7 @@ use super::{ExecContext, NodeType};
 use crate::argument::parser::ArgumentParser;
 use crate::argument::Argument;
 use crate::{Command, Dispatcher, Error, Result};
+use fnv::FnvHashMap;
 use std::fmt::Debug;
 
 #[allow(clippy::type_complexity)]
@@ -39,8 +40,19 @@ impl<C: Debug> CommandBuilder<C> {
     }
 
     pub fn build(self) -> Command<C> {
+        let mut literals_map = FnvHashMap::default();
+        let (literals, arguments): (Vec<Command<C>>, Vec<Command<C>>) = self
+            .children
+            .into_iter()
+            .partition(|c| c.is_literal());
+        literals.into_iter().for_each(|c| {
+            if let NodeType::Literal(name) = &c.node {
+                literals_map.insert(name.clone(), c);
+            }
+        });
         Command {
-            children: self.children,
+            literals: literals_map,
+            arguments: arguments,
             node: self.node,
             exec: self.exec,
         }
