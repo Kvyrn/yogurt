@@ -1,12 +1,11 @@
+use crate::parsers::escaped_string::parse_string;
+use crate::Result;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{alphanumeric1, multispace0};
 use nom::combinator::map;
 use nom::sequence::separated_pair;
 use nom::IResult;
-
-use crate::parsers::escaped_string::parse_string;
-use crate::Result;
 
 pub fn tokenize(data: &str) -> Result<(&str, Vec<Token>)> {
     let mut output = Vec::<Token>::new();
