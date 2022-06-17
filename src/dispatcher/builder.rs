@@ -4,11 +4,11 @@ use crate::argument::Argument;
 use crate::{Command, Dispatcher, Error, Result};
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[allow(clippy::type_complexity)]
 pub struct CommandBuilder<C: Debug> {
     children: Vec<Command<C>>,
     node: NodeType,
-    exec: Option<fn(ExecContext<C>) -> Result<()>>,
+    exec: Option<Box<dyn Fn(ExecContext<C>) -> Result<()>>>,
 }
 
 impl<C: Debug> CommandBuilder<C> {
@@ -28,7 +28,7 @@ impl<C: Debug> CommandBuilder<C> {
         }
     }
 
-    pub fn exec(mut self, exec: fn(ExecContext<C>) -> Result<()>) -> Self {
+    pub fn exec(mut self, exec: Box<dyn Fn(ExecContext<C>) -> Result<()>>) -> Self {
         self.exec = Some(exec);
         self
     }
@@ -47,11 +47,10 @@ impl<C: Debug> CommandBuilder<C> {
     }
 }
 
-#[derive(Debug)]
 pub struct DispatcherBuilder<C: Debug> {
     root: CommandBuilder<C>,
     prefix: String,
-    context_factory: Option<fn() -> C>,
+    context_factory: Option<Box<dyn Fn() -> C>>,
 }
 
 impl<C: Debug> DispatcherBuilder<C> {
@@ -68,7 +67,7 @@ impl<C: Debug> DispatcherBuilder<C> {
         self
     }
 
-    pub fn context(mut self, factory: fn() -> C) -> Self {
+    pub fn context(mut self, factory: Box<dyn Fn() -> C>) -> Self {
         self.context_factory = Some(factory);
         self
     }

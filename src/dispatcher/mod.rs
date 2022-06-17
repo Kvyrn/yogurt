@@ -12,24 +12,22 @@ use std::fmt::Debug;
 mod builder;
 mod exec_context;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum NodeType {
     Argument(Argument),
     Literal(String),
 }
 
-#[derive(Debug, Clone)]
 pub struct Dispatcher<C: Debug> {
     root: Command<C>,
     prefix: String,
-    context_factory: fn() -> C,
+    context_factory: Box<dyn Fn() -> C>,
 }
 
-#[derive(Debug, Clone)]
+#[allow(clippy::type_complexity)]
 pub struct Command<C: Debug> {
     children: Vec<Command<C>>,
     node: NodeType,
-    exec: Option<fn(ExecContext<C>) -> Result<()>>,
+    exec: Option<Box<dyn Fn(ExecContext<C>) -> Result<()>>>,
 }
 
 impl<C: Debug> Command<C> {
