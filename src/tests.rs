@@ -7,11 +7,11 @@ use crate::{Command, Dispatcher, Error, InvalidCommandReason};
 fn command() {
     let dispatcher = Dispatcher::builder()
         .prefix("/")
-        .context(|| ())
-        .child(Command::literal("hello").exec(|ctx| {
+        .context(Box::new(|| ()))
+        .child(Command::literal("hello").exec(Box::new(|ctx| {
             println!("{ctx:?}");
             Ok(())
-        }))
+        })))
         .build()
         .unwrap();
 
@@ -55,17 +55,14 @@ fn test_tokenize() {
 
 #[test]
 fn string_argument() {
-    assert_eq!(
-        StringArgument.parse("hello".to_string()),
-        Ok(String::from("hello"))
-    )
+    assert_eq!(StringArgument.parse("hello"), Ok(String::from("hello")))
 }
 
 #[test]
 fn int_argument() {
-    assert_eq!(IntArgument.parse("123".to_string()), Ok(123));
+    assert_eq!(IntArgument.parse("123"), Ok(123));
     assert_eq!(
-        IntArgument.parse("abc".to_string()),
+        IntArgument.parse("abc"),
         Err(Error::InvalidCommand(InvalidCommandReason::InvalidArgument))
     )
 }
