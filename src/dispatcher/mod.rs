@@ -153,7 +153,6 @@ impl<C: Debug> Dispatcher<C> {
     }
 
     fn execute_command(&self, tokens: Vec<Token>) -> Result<()> {
-        println!("{tokens:#?}");
         let (named_arguments, tokens): (Vec<_>, _) = tokens
             .into_iter()
             .partition(|token| matches!(token, &Token::Named(_, _)));
