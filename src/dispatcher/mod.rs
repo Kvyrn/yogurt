@@ -55,7 +55,7 @@ impl<C: Debug> Command<C> {
         named_arguments: &mut HashMap<String, String>,
         context: &mut ExecContext<C>,
     ) -> ExecState {
-        if offset <= tokens.len() {
+        if offset >= tokens.len() {
             return ExecState::Done(if let Some(exec) = &self.exec {
                 exec(context)
             } else {

@@ -8,14 +8,24 @@ fn command() {
     let dispatcher = Dispatcher::builder()
         .prefix("/")
         .context(Box::new(|| ()))
-        .child(Command::literal("hello").exec(Box::new(|ctx| {
-            println!("{ctx:?}");
-            Ok(())
-        })))
+        .child(
+            Command::literal("hello")
+                .exec(Box::new(|ctx| {
+                    println!("{ctx:?}");
+                    Ok(())
+                }))
+                .child(
+                    Command::argument("num", IntArgument, true).exec(Box::new(|ctx| {
+                        println!("{ctx:?}");
+                        Ok(())
+                    })),
+                ),
+        )
         .build()
         .unwrap();
 
     dispatcher.run_command("/hello").unwrap();
+    dispatcher.run_command("/hello 1").unwrap();
 }
 
 #[test]
