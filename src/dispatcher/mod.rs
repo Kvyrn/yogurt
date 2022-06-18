@@ -1,14 +1,13 @@
 use crate::argument::parser::ArgumentParser;
 use crate::argument::Argument;
 use crate::parsers::tokenize::{tokenize, Token};
-use crate::Result;
+use crate::{Error, InvalidCommandReason, Result};
 pub use builder::*;
 pub use exec_context::ExecContext;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap};
 use std::fmt::Debug;
-use fnv::FnvHashMap;
 
 mod builder;
 mod exec_context;
@@ -16,6 +15,11 @@ mod exec_context;
 pub enum NodeType {
     Argument(Argument),
     Literal(String),
+}
+
+enum ExecState {
+    Working,
+    Done(Result<()>),
 }
 
 pub struct Dispatcher<C: Debug> {
@@ -26,10 +30,9 @@ pub struct Dispatcher<C: Debug> {
 
 #[allow(clippy::type_complexity)]
 pub struct Command<C: Debug> {
-    literals: FnvHashMap<String, Command<C>>,
-    arguments: Vec<Command<C>>,
+    children: Vec<Command<C>>,
     node: NodeType,
-    exec: Option<Box<dyn Fn(ExecContext<C>) -> Result<()>>>,
+    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<()>>>,
 }
 
 impl<C: Debug> Command<C> {
@@ -47,11 +50,72 @@ impl<C: Debug> Command<C> {
 
     fn execute(
         &self,
-        tokens: VecDeque<String>,
-        named_arguments: HashMap<String, String>,
-        context: ExecContext<C>,
-    ) -> Result<()> {
-        Ok(())
+        mut offset: usize,
+        tokens: &[String],
+        named_arguments: &mut HashMap<String, String>,
+        context: &mut ExecContext<C>,
+    ) -> ExecState {
+        if offset <= tokens.len() {
+            return ExecState::Done(if let Some(exec) = &self.exec {
+                exec(context)
+            } else {
+                Err(Error::InvalidCommand(InvalidCommandReason::UnknownCommand))
+            });
+        }
+
+        for child in &self.children {
+            if child.process(&mut offset, tokens, named_arguments, context) {
+                match child.execute(offset, tokens, named_arguments, context) {
+                    ExecState::Working => continue,
+                    ExecState::Done(res) => return ExecState::Done(res),
+                }
+            }
+        }
+
+        ExecState::Working
+    }
+
+    fn process(
+        &self,
+        offset: &mut usize,
+        tokens: &[String],
+        named_arguments: &mut HashMap<String, String>,
+        context: &mut ExecContext<C>,
+    ) -> bool {
+        match &self.node {
+            NodeType::Literal(name) => {
+                if let Some(token) = tokens.get(*offset) {
+                    if name == token {
+                        *offset += 1;
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            NodeType::Argument(argument) => {
+                if let Some(named) = named_arguments.get(&argument.name) {
+                    if argument.matches(named) {
+                        context.insert_argument(argument.name.clone(), named.clone());
+                        true
+                    } else {
+                        false
+                    }
+                } else if let Some(token) = tokens.get(*offset) {
+                    if argument.matches(token) {
+                        *offset += 1;
+                        context.insert_argument(argument.name.clone(), token.clone());
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+        }
     }
 
     pub fn is_literal(&self) -> bool {
@@ -93,14 +157,18 @@ impl<C: Debug> Dispatcher<C> {
         let (named_arguments, tokens): (Vec<_>, _) = tokens
             .into_iter()
             .partition(|token| matches!(token, &Token::Named(_, _)));
-        let tokens = VecDeque::from(unwrap_tokens(tokens));
-        let named_args = map_named_arguments(named_arguments);
+        let tokens = unwrap_tokens(tokens);
+        let mut named_args = map_named_arguments(named_arguments);
 
-        self.root.execute(
-            tokens,
-            named_args,
-            ExecContext::new((self.context_factory)()),
-        )
+        match self.root.execute(
+            0,
+            tokens.as_slice(),
+            &mut named_args,
+            &mut ExecContext::new((self.context_factory)()),
+        ) {
+            ExecState::Working => Err(Error::InvalidCommand(InvalidCommandReason::UnknownCommand)),
+            ExecState::Done(res) => res,
+        }
     }
 }
 

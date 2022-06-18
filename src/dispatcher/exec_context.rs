@@ -32,4 +32,8 @@ impl<C: Debug> ExecContext<C> {
     pub fn context(&self) -> &C {
         &self.context
     }
+
+    pub fn insert_argument(&mut self, name: String, value: String) {
+        self.arguments.insert(name, value);
+    }
 }

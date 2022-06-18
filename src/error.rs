@@ -22,5 +22,6 @@ pub enum InvalidCommandReason {
     UnknownCommand,
     MissingArgument,
     InvalidArgument,
+    UnknownArgument,
     Unauthorised,
 }

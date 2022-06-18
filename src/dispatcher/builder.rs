@@ -2,14 +2,13 @@ use super::{ExecContext, NodeType};
 use crate::argument::parser::ArgumentParser;
 use crate::argument::Argument;
 use crate::{Command, Dispatcher, Error, Result};
-use fnv::FnvHashMap;
 use std::fmt::Debug;
 
 #[allow(clippy::type_complexity)]
 pub struct CommandBuilder<C: Debug> {
     children: Vec<Command<C>>,
     node: NodeType,
-    exec: Option<Box<dyn Fn(ExecContext<C>) -> Result<()>>>,
+    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<()>>>,
 }
 
 impl<C: Debug> CommandBuilder<C> {
@@ -29,7 +28,7 @@ impl<C: Debug> CommandBuilder<C> {
         }
     }
 
-    pub fn exec(mut self, exec: Box<dyn Fn(ExecContext<C>) -> Result<()>>) -> Self {
+    pub fn exec(mut self, exec: Box<dyn Fn(&mut ExecContext<C>) -> Result<()>>) -> Self {
         self.exec = Some(exec);
         self
     }
@@ -40,19 +39,11 @@ impl<C: Debug> CommandBuilder<C> {
     }
 
     pub fn build(self) -> Command<C> {
-        let mut literals_map = FnvHashMap::default();
-        let (literals, arguments): (Vec<Command<C>>, Vec<Command<C>>) = self
-            .children
-            .into_iter()
-            .partition(|c| c.is_literal());
-        literals.into_iter().for_each(|c| {
-            if let NodeType::Literal(name) = &c.node {
-                literals_map.insert(name.clone(), c);
-            }
-        });
+        let (mut literals, arguments): (Vec<_>, Vec<_>) =
+            self.children.into_iter().partition(|c| c.is_literal());
+        literals.extend(arguments);
         Command {
-            literals: literals_map,
-            arguments: arguments,
+            children: literals,
             node: self.node,
             exec: self.exec,
         }
