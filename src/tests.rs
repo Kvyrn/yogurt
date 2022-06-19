@@ -29,6 +29,25 @@ fn command() {
 }
 
 #[test]
+fn optional_argument() {
+    let dispatcher = Dispatcher::builder()
+        .context(Box::new(|| ()))
+        .child(
+            Command::literal("test").child(Command::argument("num", IntArgument, false).child(
+                Command::argument("string", StringArgument, true).exec(Box::new(|ctx| {
+                    println!("{ctx:?}");
+                    Ok(())
+                })),
+            )),
+        )
+        .build()
+        .unwrap();
+
+    dispatcher.run_command("test 1 hello").unwrap();
+    dispatcher.run_command("test hello").unwrap();
+}
+
+#[test]
 fn string_parse() {
     let sample = r#""hello\nworld \t tab""#;
     let result = parse_string::<nom::error::Error<&str>>(sample);

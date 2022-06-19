@@ -101,7 +101,7 @@ impl<C: Debug> Command<C> {
                         context.insert_argument(argument.name.clone(), named.clone());
                         true
                     } else {
-                        false
+                        !argument.is_required()
                     }
                 } else if let Some(token) = tokens.get(*offset) {
                     if argument.matches(token) {
@@ -109,10 +109,10 @@ impl<C: Debug> Command<C> {
                         context.insert_argument(argument.name.clone(), token.clone());
                         true
                     } else {
-                        false
+                        !argument.is_required()
                     }
                 } else {
-                    false
+                    !argument.is_required()
                 }
             }
         }
