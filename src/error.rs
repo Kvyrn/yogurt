@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::InvalidCommandReason::UnknownCommand;
 use nom::Err;
 
@@ -16,6 +17,14 @@ impl From<Err<nom::error::Error<&str>>> for Error {
         Error::InvalidCommand(UnknownCommand)
     }
 }
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
+impl std::error::Error for Error {}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum InvalidCommandReason {
