@@ -6,7 +6,7 @@ pub use builder::*;
 pub use exec_context::ExecContext;
 use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 mod builder;
@@ -133,6 +133,14 @@ impl<C: Debug> Dispatcher<C> {
     }
 
     pub fn run_command(&self, command: &str) -> Result<()> {
+        self.command_in_ctx(command, None)
+    }
+
+    pub fn run_command_in_context(&self, command: &str, context: Box<dyn Fn() -> C>) -> Result<()> {
+        self.command_in_ctx(command, Some(context))
+    }
+
+    fn command_in_ctx(&self, command: &str, context: Option<Box<dyn Fn() -> C>>) -> Result<()> {
         // remove leading whitespace and prefix
         let (command, _) = multispace0(command)?;
         let (command, _) = tag(self.prefix.as_str())(command)?;
@@ -145,25 +153,34 @@ impl<C: Debug> Dispatcher<C> {
             if token != Token::End {
                 cmd_tokens.push(token);
             } else if !cmd_tokens.is_empty() {
-                self.execute_command(cmd_tokens)?;
+                self.execute_command(cmd_tokens, context)?;
                 cmd_tokens = vec![];
             }
         }
         Ok(())
     }
 
-    fn execute_command(&self, tokens: Vec<Token>) -> Result<()> {
+    fn execute_command(
+        &self,
+        tokens: Vec<Token>,
+        context: Option<Box<dyn Fn() -> C>>,
+    ) -> Result<()> {
         let (named_arguments, tokens): (Vec<_>, _) = tokens
             .into_iter()
             .partition(|token| matches!(token, &Token::Named(_, _)));
         let tokens = unwrap_tokens(tokens);
         let mut named_args = map_named_arguments(named_arguments);
 
+        let context = match context {
+            Some(factory) => factory(),
+            None => (self.context_factory)(),
+        };
+
         match self.root.execute(
             0,
             tokens.as_slice(),
             &mut named_args,
-            &mut ExecContext::new((self.context_factory)()),
+            &mut ExecContext::new(context),
         ) {
             ExecState::Working => Err(Error::InvalidCommand(InvalidCommandReason::UnknownCommand)),
             ExecState::Done(res) => res,
