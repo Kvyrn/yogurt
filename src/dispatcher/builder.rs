@@ -5,13 +5,13 @@ use crate::{Command, Dispatcher, Error, Result};
 use std::fmt::Debug;
 
 #[allow(clippy::type_complexity)]
-pub struct CommandBuilder<C: Debug> {
-    children: Vec<Command<C>>,
+pub struct CommandBuilder<C: Debug, O> {
+    children: Vec<Command<C, O>>,
     node: NodeType,
-    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<()>>>,
+    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<O>>>,
 }
 
-impl<C: Debug> CommandBuilder<C> {
+impl<C: Debug, O> CommandBuilder<C, O> {
     pub fn literal(name: impl Into<String>) -> Self {
         Self {
             children: vec![],
@@ -28,17 +28,17 @@ impl<C: Debug> CommandBuilder<C> {
         }
     }
 
-    pub fn exec(mut self, exec: Box<dyn Fn(&mut ExecContext<C>) -> Result<()>>) -> Self {
+    pub fn exec(mut self, exec: Box<dyn Fn(&mut ExecContext<C>) -> Result<O>>) -> Self {
         self.exec = Some(exec);
         self
     }
 
-    pub fn child(mut self, child: impl Into<Command<C>>) -> Self {
+    pub fn child(mut self, child: impl Into<Command<C, O>>) -> Self {
         self.children.push(child.into());
         self
     }
 
-    pub fn build(self) -> Command<C> {
+    pub fn build(self) -> Command<C, O> {
         let (mut literals, arguments): (Vec<_>, Vec<_>) =
             self.children.into_iter().partition(|c| c.is_literal());
         literals.extend(arguments);
@@ -50,13 +50,13 @@ impl<C: Debug> CommandBuilder<C> {
     }
 }
 
-pub struct DispatcherBuilder<C: Debug> {
-    root: CommandBuilder<C>,
+pub struct DispatcherBuilder<C: Debug, O> {
+    root: CommandBuilder<C, O>,
     prefix: String,
     context_factory: Option<Box<dyn Fn() -> C>>,
 }
 
-impl<C: Debug> DispatcherBuilder<C> {
+impl<C: Debug, O> DispatcherBuilder<C, O> {
     pub fn new() -> Self {
         Self {
             root: CommandBuilder::literal(""),
@@ -75,12 +75,12 @@ impl<C: Debug> DispatcherBuilder<C> {
         self
     }
 
-    pub fn child(mut self, child: impl Into<Command<C>>) -> Self {
+    pub fn child(mut self, child: impl Into<Command<C, O>>) -> Self {
         self.root.children.push(child.into());
         self
     }
 
-    pub fn build(self) -> Result<Dispatcher<C>> {
+    pub fn build(self) -> Result<Dispatcher<C, O>> {
         Ok(Dispatcher {
             root: self.root.build(),
             prefix: self.prefix,
@@ -89,7 +89,7 @@ impl<C: Debug> DispatcherBuilder<C> {
     }
 }
 
-impl<C: Debug> Default for DispatcherBuilder<C> {
+impl<C: Debug, O> Default for DispatcherBuilder<C, O> {
     fn default() -> Self {
         Self {
             root: CommandBuilder::literal(""),

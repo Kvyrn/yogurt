@@ -29,6 +29,21 @@ fn command() {
 }
 
 #[test]
+fn command_with_output() {
+    let dispatcher = Dispatcher::builder()
+        .context(Box::new(|| ()))
+        .child(Command::literal("hello").exec(Box::new(|ctx| {
+            println!("{ctx:?}");
+            Ok("hello".to_string())
+        })))
+        .build()
+        .unwrap();
+
+    let output = dispatcher.run_command("hello").unwrap();
+    assert_eq!(output, vec!["hello".to_string()])
+}
+
+#[test]
 fn optional_argument() {
     let dispatcher = Dispatcher::builder()
         .context(Box::new(|| ()))

@@ -8,6 +8,8 @@ use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::ops::Deref;
+use std::sync::Arc;
 
 mod builder;
 mod exec_context;
@@ -17,26 +19,26 @@ pub enum NodeType {
     Literal(String),
 }
 
-enum ExecState {
+enum ExecState<O> {
     Working,
-    Done(Result<()>),
+    Done(Result<O>),
 }
 
-pub struct Dispatcher<C: Debug> {
-    root: Command<C>,
+pub struct Dispatcher<C: Debug, O> {
+    root: Command<C, O>,
     prefix: String,
     context_factory: Box<dyn Fn() -> C>,
 }
 
 #[allow(clippy::type_complexity)]
-pub struct Command<C: Debug> {
-    children: Vec<Command<C>>,
+pub struct Command<C: Debug, O> {
+    children: Vec<Command<C, O>>,
     node: NodeType,
-    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<()>>>,
+    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<O>>>,
 }
 
-impl<C: Debug> Command<C> {
-    pub fn literal(name: impl Into<String>) -> CommandBuilder<C> {
+impl<C: Debug, O> Command<C, O> {
+    pub fn literal(name: impl Into<String>) -> CommandBuilder<C, O> {
         CommandBuilder::literal(name)
     }
 
@@ -44,7 +46,7 @@ impl<C: Debug> Command<C> {
         name: impl Into<String>,
         parser: impl ArgumentParser,
         required: bool,
-    ) -> CommandBuilder<C> {
+    ) -> CommandBuilder<C, O> {
         CommandBuilder::argument(parser, name, required)
     }
 
@@ -54,7 +56,7 @@ impl<C: Debug> Command<C> {
         tokens: &[String],
         named_arguments: &mut HashMap<String, String>,
         context: &mut ExecContext<C>,
-    ) -> ExecState {
+    ) -> ExecState<O> {
         if offset >= tokens.len() {
             return ExecState::Done(if let Some(exec) = &self.exec {
                 exec(context)
@@ -127,20 +129,24 @@ impl<C: Debug> Command<C> {
     }
 }
 
-impl<C: Debug> Dispatcher<C> {
-    pub fn builder() -> DispatcherBuilder<C> {
+impl<C: Debug, O> Dispatcher<C, O> {
+    pub fn builder() -> DispatcherBuilder<C, O> {
         DispatcherBuilder::new()
     }
 
-    pub fn run_command(&self, command: &str) -> Result<()> {
+    pub fn run_command(&self, command: &str) -> Result<Vec<O>> {
         self.command_in_ctx(command, None)
     }
 
-    pub fn run_command_in_context(&self, command: &str, context: Box<dyn Fn() -> C>) -> Result<()> {
+    pub fn run_command_in_context(
+        &self,
+        command: &str,
+        context: Box<dyn Fn() -> C>,
+    ) -> Result<Vec<O>> {
         self.command_in_ctx(command, Some(context))
     }
 
-    fn command_in_ctx(&self, command: &str, context: Option<Box<dyn Fn() -> C>>) -> Result<()> {
+    fn command_in_ctx(&self, command: &str, context: Option<Box<dyn Fn() -> C>>) -> Result<Vec<O>> {
         // remove leading whitespace and prefix
         let (command, _) = multispace0(command)?;
         let (command, _) = tag(self.prefix.as_str())(command)?;
@@ -148,30 +154,36 @@ impl<C: Debug> Dispatcher<C> {
         let (_, mut tokens) = tokenize(command)?;
         tokens.push(Token::End);
 
+        let context = Arc::new(context);
+
         let mut cmd_tokens = vec![];
+        let mut outputs = vec![];
         for token in tokens {
             if token != Token::End {
                 cmd_tokens.push(token);
             } else if !cmd_tokens.is_empty() {
-                self.execute_command(cmd_tokens, context)?;
+                match self.execute_command(cmd_tokens, context.clone()) {
+                    Ok(res) => outputs.push(res),
+                    Err(err) => return Err(err),
+                }
                 cmd_tokens = vec![];
             }
         }
-        Ok(())
+        Ok(outputs)
     }
 
     fn execute_command(
         &self,
         tokens: Vec<Token>,
-        context: Option<Box<dyn Fn() -> C>>,
-    ) -> Result<()> {
+        context: Arc<Option<Box<dyn Fn() -> C>>>,
+    ) -> Result<O> {
         let (named_arguments, tokens): (Vec<_>, _) = tokens
             .into_iter()
             .partition(|token| matches!(token, &Token::Named(_, _)));
         let tokens = unwrap_tokens(tokens);
         let mut named_args = map_named_arguments(named_arguments);
 
-        let context = match context {
+        let context = match context.deref() {
             Some(factory) => factory(),
             None => (self.context_factory)(),
         };
@@ -208,8 +220,8 @@ fn map_named_arguments(tokens: Vec<Token>) -> HashMap<String, String> {
     output
 }
 
-impl<C: Debug> From<CommandBuilder<C>> for Command<C> {
-    fn from(builder: CommandBuilder<C>) -> Self {
+impl<C: Debug, O> From<CommandBuilder<C, O>> for Command<C, O> {
+    fn from(builder: CommandBuilder<C, O>) -> Self {
         builder.build()
     }
 }
