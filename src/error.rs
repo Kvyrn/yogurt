@@ -1,6 +1,6 @@
-use std::fmt::{Display, Formatter};
 use crate::InvalidCommandReason::UnknownCommand;
 use nom::Err;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Error {
