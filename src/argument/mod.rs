@@ -1,13 +1,13 @@
 pub mod parser;
 
 pub struct Argument {
-    validator: Box<dyn Fn(&str) -> bool>,
+    validator: fn(&str) -> bool,
     pub name: String,
     required: bool,
 }
 
 impl Argument {
-    pub fn new(validator: Box<dyn Fn(&str) -> bool>, name: String, required: bool) -> Self {
+    pub fn new(validator: fn(&str) -> bool, name: String, required: bool) -> Self {
         Self {
             validator,
             name,

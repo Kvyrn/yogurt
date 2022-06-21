@@ -7,13 +7,14 @@ fn main() {
         Dispatcher::builder()
             // command prefix, defaults to none
             .prefix("/")
+            .base_context(())
             // context factory, new context is created for every executed command
-            .context(Box::new(|| ()))
+            .context_factory(|_| ())
             .child(Command::literal("ping").child(
-                Command::argument("number", IntArgument, true).exec(Box::new(|ctx| {
+                Command::argument("number", IntArgument, true).exec(|ctx| {
                     println!("{:?}", ctx);
                     Ok(())
-                })),
+                }),
             ))
             .build()
             // fails if no context factory provided

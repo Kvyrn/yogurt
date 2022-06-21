@@ -8,8 +8,6 @@ use nom::bytes::complete::tag;
 use nom::character::complete::multispace0;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::ops::Deref;
-use std::sync::Arc;
 
 mod builder;
 mod exec_context;
@@ -24,17 +22,18 @@ enum ExecState<O> {
     Done(Result<O>),
 }
 
-pub struct Dispatcher<C: Debug, O> {
+pub struct Dispatcher<C: Debug, O, B> {
     root: Command<C, O>,
     prefix: String,
-    context_factory: Box<dyn Fn() -> C>,
+    context_factory: fn(&B) -> C,
+    base_context: B,
 }
 
 #[allow(clippy::type_complexity)]
 pub struct Command<C: Debug, O> {
     children: Vec<Command<C, O>>,
     node: NodeType,
-    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<O>>>,
+    exec: Option<fn(&mut ExecContext<C>) -> Result<O>>,
 }
 
 impl<C: Debug, O> Command<C, O> {
@@ -129,8 +128,8 @@ impl<C: Debug, O> Command<C, O> {
     }
 }
 
-impl<C: Debug, O> Dispatcher<C, O> {
-    pub fn builder() -> DispatcherBuilder<C, O> {
+impl<C: Debug, O, B> Dispatcher<C, O, B> {
+    pub fn builder() -> DispatcherBuilder<C, O, B> {
         DispatcherBuilder::new()
     }
 
@@ -138,15 +137,11 @@ impl<C: Debug, O> Dispatcher<C, O> {
         self.command_in_ctx(command, None)
     }
 
-    pub fn run_command_in_context(
-        &self,
-        command: &str,
-        context: Box<dyn Fn() -> C>,
-    ) -> Result<Vec<O>> {
+    pub fn run_command_in_context(&self, command: &str, context: fn(&B) -> C) -> Result<Vec<O>> {
         self.command_in_ctx(command, Some(context))
     }
 
-    fn command_in_ctx(&self, command: &str, context: Option<Box<dyn Fn() -> C>>) -> Result<Vec<O>> {
+    fn command_in_ctx(&self, command: &str, context: Option<fn(&B) -> C>) -> Result<Vec<O>> {
         // remove leading whitespace and prefix
         let (command, _) = multispace0(command)?;
         let (command, _) = tag(self.prefix.as_str())(command)?;
@@ -154,15 +149,16 @@ impl<C: Debug, O> Dispatcher<C, O> {
         let (_, mut tokens) = tokenize(command)?;
         tokens.push(Token::End);
 
-        let context = Arc::new(context);
-
         let mut cmd_tokens = vec![];
         let mut outputs = vec![];
         for token in tokens {
             if token != Token::End {
                 cmd_tokens.push(token);
             } else if !cmd_tokens.is_empty() {
-                match self.execute_command(cmd_tokens, context.clone()) {
+                match self.execute_command(
+                    cmd_tokens,
+                    (context.unwrap_or(self.context_factory))(&self.base_context),
+                ) {
                     Ok(res) => outputs.push(res),
                     Err(err) => return Err(err),
                 }
@@ -172,21 +168,12 @@ impl<C: Debug, O> Dispatcher<C, O> {
         Ok(outputs)
     }
 
-    fn execute_command(
-        &self,
-        tokens: Vec<Token>,
-        context: Arc<Option<Box<dyn Fn() -> C>>>,
-    ) -> Result<O> {
+    fn execute_command(&self, tokens: Vec<Token>, context: C) -> Result<O> {
         let (named_arguments, tokens): (Vec<_>, _) = tokens
             .into_iter()
             .partition(|token| matches!(token, &Token::Named(_, _)));
         let tokens = unwrap_tokens(tokens);
         let mut named_args = map_named_arguments(named_arguments);
-
-        let context = match context.deref() {
-            Some(factory) => factory(),
-            None => (self.context_factory)(),
-        };
 
         match self.root.execute(
             0,

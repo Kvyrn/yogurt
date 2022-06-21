@@ -6,7 +6,7 @@ pub trait ArgumentParser: Debug + Clone {
 
     fn parse(&self, token: &str) -> Result<Self::Output>;
 
-    fn validator(&self) -> Box<dyn Fn(&str) -> bool>;
+    fn validator(&self) -> fn(&str) -> bool;
 }
 
 #[derive(Debug, Clone)]
@@ -19,8 +19,8 @@ impl ArgumentParser for StringArgument {
         Ok(token.to_string())
     }
 
-    fn validator(&self) -> Box<dyn Fn(&str) -> bool> {
-        Box::new(|_| true)
+    fn validator(&self) -> fn(&str) -> bool {
+        |_| true
     }
 }
 
@@ -36,8 +36,8 @@ impl ArgumentParser for IntArgument {
             .map_err(|_| Error::InvalidCommand(InvalidCommandReason::InvalidArgument))
     }
 
-    fn validator(&self) -> Box<dyn Fn(&str) -> bool> {
-        Box::new(|str| str.parse::<i32>().is_ok())
+    fn validator(&self) -> fn(&str) -> bool {
+        |str| str.parse::<i32>().is_ok()
     }
 }
 
@@ -61,13 +61,8 @@ impl ArgumentParser for BoundedIntArgument {
         }
     }
 
-    fn validator(&self) -> Box<dyn Fn(&str) -> bool> {
-        let min = self.min;
-        let max = self.max;
-        Box::new(move |str| match str.parse::<i32>() {
-            Ok(int) => int <= max && int >= min,
-            Err(_) => false,
-        })
+    fn validator(&self) -> fn(&str) -> bool {
+        |str| str.parse::<i32>().is_ok()
     }
 }
 
@@ -86,8 +81,7 @@ impl ArgumentParser for ChoiceArgument {
         }
     }
 
-    fn validator(&self) -> Box<dyn Fn(&str) -> bool> {
-        let options = self.0.clone();
-        Box::new(move |token| options.contains(&token.to_string()))
+    fn validator(&self) -> fn(&str) -> bool {
+        |_| true
     }
 }

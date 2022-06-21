@@ -7,19 +7,18 @@ use crate::{Command, Dispatcher, Error, InvalidCommandReason};
 fn command() {
     let dispatcher = Dispatcher::builder()
         .prefix("/")
-        .context(Box::new(|| ()))
+        .base_context(())
+        .context_factory(|_| ())
         .child(
             Command::literal("hello")
-                .exec(Box::new(|ctx| {
+                .exec(|ctx| {
                     println!("{ctx:?}");
                     Ok(())
-                }))
-                .child(
-                    Command::argument("num", IntArgument, true).exec(Box::new(|ctx| {
-                        println!("{ctx:?}");
-                        Ok(())
-                    })),
-                ),
+                })
+                .child(Command::argument("num", IntArgument, true).exec(|ctx| {
+                    println!("{ctx:?}");
+                    Ok(())
+                })),
         )
         .build()
         .unwrap();
@@ -31,11 +30,12 @@ fn command() {
 #[test]
 fn command_with_output() {
     let dispatcher = Dispatcher::builder()
-        .context(Box::new(|| ()))
-        .child(Command::literal("hello").exec(Box::new(|ctx| {
+        .base_context(())
+        .context_factory(|_| ())
+        .child(Command::literal("hello").exec(|ctx| {
             println!("{ctx:?}");
             Ok("hello".to_string())
-        })))
+        }))
         .build()
         .unwrap();
 
@@ -46,13 +46,14 @@ fn command_with_output() {
 #[test]
 fn optional_argument() {
     let dispatcher = Dispatcher::builder()
-        .context(Box::new(|| ()))
+        .base_context(())
+        .context_factory(|_| ())
         .child(
             Command::literal("test").child(Command::argument("num", IntArgument, false).child(
-                Command::argument("string", StringArgument, true).exec(Box::new(|ctx| {
+                Command::argument("string", StringArgument, true).exec(|ctx| {
                     println!("{ctx:?}");
                     Ok(())
-                })),
+                }),
             )),
         )
         .build()

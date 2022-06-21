@@ -8,7 +8,7 @@ use std::fmt::Debug;
 pub struct CommandBuilder<C: Debug, O> {
     children: Vec<Command<C, O>>,
     node: NodeType,
-    exec: Option<Box<dyn Fn(&mut ExecContext<C>) -> Result<O>>>,
+    exec: Option<fn(&mut ExecContext<C>) -> Result<O>>,
 }
 
 impl<C: Debug, O> CommandBuilder<C, O> {
@@ -21,14 +21,22 @@ impl<C: Debug, O> CommandBuilder<C, O> {
     }
 
     pub fn argument(parser: impl ArgumentParser, name: impl Into<String>, required: bool) -> Self {
+        Self::argument_validator(parser.validator(), name, required)
+    }
+
+    pub fn argument_validator(
+        validator: fn(&str) -> bool,
+        name: impl Into<String>,
+        required: bool,
+    ) -> Self {
         Self {
             children: vec![],
             exec: None,
-            node: NodeType::Argument(Argument::new(parser.validator(), name.into(), required)),
+            node: NodeType::Argument(Argument::new(validator, name.into(), required)),
         }
     }
 
-    pub fn exec(mut self, exec: Box<dyn Fn(&mut ExecContext<C>) -> Result<O>>) -> Self {
+    pub fn exec(mut self, exec: fn(&mut ExecContext<C>) -> Result<O>) -> Self {
         self.exec = Some(exec);
         self
     }
@@ -50,28 +58,35 @@ impl<C: Debug, O> CommandBuilder<C, O> {
     }
 }
 
-pub struct DispatcherBuilder<C: Debug, O> {
+pub struct DispatcherBuilder<C: Debug, O, B> {
     root: CommandBuilder<C, O>,
-    prefix: String,
-    context_factory: Option<Box<dyn Fn() -> C>>,
+    prefix: Option<String>,
+    context_factory: Option<fn(&B) -> C>,
+    base_context: Option<B>,
 }
 
-impl<C: Debug, O> DispatcherBuilder<C, O> {
+impl<C: Debug, O, B> DispatcherBuilder<C, O, B> {
     pub fn new() -> Self {
         Self {
             root: CommandBuilder::literal(""),
-            prefix: "".to_string(),
+            prefix: None,
             context_factory: None,
+            base_context: None,
         }
     }
 
     pub fn prefix(mut self, prefix: impl Into<String>) -> Self {
-        self.prefix = prefix.into();
+        self.prefix = Some(prefix.into());
         self
     }
 
-    pub fn context(mut self, factory: Box<dyn Fn() -> C>) -> Self {
+    pub fn context_factory(mut self, factory: fn(&B) -> C) -> Self {
         self.context_factory = Some(factory);
+        self
+    }
+
+    pub fn base_context(mut self, context: B) -> Self {
+        self.base_context = Some(context);
         self
     }
 
@@ -80,21 +95,23 @@ impl<C: Debug, O> DispatcherBuilder<C, O> {
         self
     }
 
-    pub fn build(self) -> Result<Dispatcher<C, O>> {
+    pub fn build(self) -> Result<Dispatcher<C, O, B>> {
         Ok(Dispatcher {
             root: self.root.build(),
-            prefix: self.prefix,
+            prefix: self.prefix.unwrap_or_default(),
             context_factory: self.context_factory.ok_or(Error::IncompleteBuilder)?,
+            base_context: self.base_context.ok_or(Error::IncompleteBuilder)?,
         })
     }
 }
 
-impl<C: Debug, O> Default for DispatcherBuilder<C, O> {
+impl<C: Debug, O, B> Default for DispatcherBuilder<C, O, B> {
     fn default() -> Self {
         Self {
             root: CommandBuilder::literal(""),
-            prefix: "".to_string(),
+            prefix: None,
             context_factory: None,
+            base_context: None,
         }
     }
 }
