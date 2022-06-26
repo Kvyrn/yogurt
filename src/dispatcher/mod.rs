@@ -137,11 +137,19 @@ impl<C: Debug, O, B> Dispatcher<C, O, B> {
         self.command_in_ctx(command, None)
     }
 
-    pub fn run_command_in_context(&self, command: &str, context: fn(&B) -> C) -> Result<Vec<O>> {
+    pub fn run_command_in_context(
+        &self,
+        command: &str,
+        context: Box<dyn Fn(&B) -> C>,
+    ) -> Result<Vec<O>> {
         self.command_in_ctx(command, Some(context))
     }
 
-    fn command_in_ctx(&self, command: &str, context: Option<fn(&B) -> C>) -> Result<Vec<O>> {
+    fn command_in_ctx(
+        &self,
+        command: &str,
+        context: Option<Box<dyn Fn(&B) -> C>>,
+    ) -> Result<Vec<O>> {
         // remove leading whitespace and prefix
         let (command, _) = multispace0(command)?;
         let (command, _) = tag(self.prefix.as_str())(command)?;
@@ -155,10 +163,12 @@ impl<C: Debug, O, B> Dispatcher<C, O, B> {
             if token != Token::End {
                 cmd_tokens.push(token);
             } else if !cmd_tokens.is_empty() {
-                match self.execute_command(
-                    cmd_tokens,
-                    (context.unwrap_or(self.context_factory))(&self.base_context),
-                ) {
+                let context = match &context {
+                    Some(factory) => factory(&self.base_context),
+                    None => (self.context_factory)(&self.base_context),
+                };
+
+                match self.execute_command(cmd_tokens, context) {
                     Ok(res) => outputs.push(res),
                     Err(err) => return Err(err),
                 }
